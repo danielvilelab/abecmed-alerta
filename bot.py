@@ -417,10 +417,10 @@ def ciclo(cpf, topic, state_path, limite):
     hora = datetime.now(BRT).strftime("%H:%M")
     condicoes = "flor < R$ %g/g ou concentrado" % limite
 
-    # Push em TODA verificacao, com a tabela. O volume depende do que tem:
+    # Push SO quando ha item nas condicoes, com a tabela. Volume:
     #   item novo nas condicoes -> 5 (toca alto)
     #   itens nas condicoes, ja avisados -> 3 (som normal)
-    #   nada nas condicoes -> 2 (chega calado, sem som)
+    #   nada nas condicoes -> sem push
     if novos:
         tem_flor = any(n.startswith("🌸") for n in novos)
         tem_conc = any(n.startswith("🧪") for n in novos)
@@ -436,12 +436,14 @@ def ciclo(cpf, topic, state_path, limite):
         topo = "NAS CONDICOES (%s):\n%s" % (condicoes, "\n".join(agora[k] for k in sorted(agora)))
         tags, prioridade = ["white_check_mark"], 3
     else:
-        titulo = "ABEC %s · nada nas condicoes" % hora
-        topo = "Nada nas condicoes (%s)." % condicoes
-        tags, prioridade = ["seedling"], 2
+        titulo = None  # nada nas condicoes: verifica, salva o estado e fica quieto
 
-    notify(topic, titulo, topo + "\n\n" + disponivel, tags, prioridade)
-    print("%s  push enviado (prioridade %d): %s" % (hora, prioridade, titulo))
+    if titulo:
+        notify(topic, titulo, topo + "\n\n" + disponivel, tags, prioridade)
+        print("%s  push enviado (prioridade %d): %s" % (hora, prioridade, titulo))
+    else:
+        print("%s  nada nas condicoes (%s); sem push. %d flores, %d concentrados" % (
+            hora, condicoes, len(cat["flores"]), len(cat["concentrados"])))
 
     # So guarda os alvos ATUAIS: item que esgota e volta gera alerta de novo.
     save_state(state_path, {"alertados": sorted(agora), "quebrado": False, "slug": cat["slug"]})
