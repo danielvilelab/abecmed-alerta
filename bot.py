@@ -324,6 +324,23 @@ def alvos(catalogo, limite):
     return out
 
 
+def catalogo_texto(cat, limite):
+    """Tudo que esta disponivel agora, flores da mais barata pra mais cara.
+    Marca com ✅ o que esta abaixo do limite."""
+    flores = sorted(cat["flores"], key=lambda f: (preco(f) is None, preco(f) or 0))
+    linhas = ["DISPONIVEL AGORA"]
+    linhas.append("Flores (%d):" % len(flores) if flores else "Flores: sem estoque")
+    for f in flores:
+        p = preco(f)
+        linhas.append("%s %s" % ("✅" if p is not None and p < limite else "•", f))
+    if cat["concentrados"]:
+        linhas.append("Concentrados (%d):" % len(cat["concentrados"]))
+        linhas += ["✅ %s" % c for c in cat["concentrados"]]
+    else:
+        linhas.append("Concentrados: sem estoque")
+    return "\n".join(linhas)
+
+
 # --------------------------------------------------------------- estado
 
 
@@ -393,18 +410,19 @@ def ciclo(cpf, topic, state_path, limite):
 
     agora = alvos(cat, limite)
     novos = [agora[k] for k in sorted(agora) if k not in antes]
+    disponivel = catalogo_texto(cat, limite)
 
     if primeira:
         resumo = "\n".join(agora.values()) or "Nada abaixo de R$ %g/g nem concentrado agora." % limite
         notify(topic, "abecmed-alerta ativo",
-               "Monitorando. Situacao atual:\n\n%s\n\nFlores no catalogo: %d" % (resumo, len(cat["flores"])),
+               "Monitorando. Alertas agora:\n%s\n\n%s" % (resumo, disponivel),
                ["rotating_light"] if agora else ["seedling"], 5 if agora else 3)
     elif novos:
         tem_flor = any(n.startswith("🌸") for n in novos)
         tem_conc = any(n.startswith("🧪") for n in novos)
         partes = (["FLOR < R$ %g" % limite] if tem_flor else []) + (["CONCENTRADO"] if tem_conc else [])
         notify(topic, "CORRE: " + " + ".join(partes) + " na ABECMED",
-               "\n".join(novos) + "\n\nToque para abrir o bot.",
+               "NOVO:\n" + "\n".join(novos) + "\n\n" + disponivel,
                ["rotating_light"], 5)
         print("%s  ALERTA enviado: %d item(ns)" % (time.strftime("%H:%M"), len(novos)))
     else:
