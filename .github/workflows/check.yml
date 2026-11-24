@@ -1,0 +1,82 @@
+name: check
+
+on:
+  # Gatilho principal: um servico de cron externo (cron-job.org) chama a API do
+  # GitHub a cada 5 min. O agendador do Actions e best-effort e descarta
+  # execucao sob carga — para uma flor que esgota em horas, isso nao serve.
+  repository_dispatch:
+    types: [check]
+
+  # Rede de seguranca, nao o relogio principal. Se o cron externo cair, isso
+  # ainda cobre o buraco de vez em quando. Deslocado dos minutos redondos, que
+  # sao os mais disputados no agendador.
+  schedule:
+    - cron: "1,6,11,16,21,26,31,36,41,46,51,56 * * * *"
+
+  workflow_dispatch:
+
+concurrency:
+  group: abecmed-alerta
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # So faz sentido no gatilho agendado, que chega em horario redondo junto
+      # com o resto do mundo. O cron externo ja marca a hora que a gente pediu.
+      - name: Jitter
+        if: github.event_name == 'schedule'
+        run: sleep $((RANDOM % 60))
+
+      - name: Rodar
+        env:
+          ABECMED_CPF: ${{ secrets.ABECMED_CPF }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          PRECO_MAX_FLOR: ${{ vars.PRECO_MAX_FLOR }}
+        run: python3 bot.py
+
+      # always(): quando o fluxo quebra o passo acima sai com 1, mas o estado
+      # traz o flag "ja avisei que quebrou". Sem salvar, a quebra notificaria
+      # de novo a cada verificacao.
+      - name: Salvar estado
+        if: always()
+        run: |
+          if [ -z "$(git status --porcelain estado.json)" ]; then
+            echo "nada a salvar"; exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add estado.json
+          git commit -m "estado: $(date -u +%Y-%m-%dT%H:%MZ)"
+          # Um push manual no meio do caminho nao pode derrubar a verificacao.
+          for tentativa in 1 2 3; do
+            git push && exit 0
+            echo "push recusado (tentativa $tentativa), rebaseando"
+            git pull --rebase --autostash || true
+            sleep 5
+          done
+          echo "::warning::nao consegui salvar o estado; a proxima verificacao repete a notificacao"
+
+      # Dead man's switch. Um monitor parado nao consegue avisar que parou —
+      # quem percebe o silencio tem que estar de fora. Pinga em always() de
+      # proposito: fluxo quebrado o proprio bot.py ja notifica no ntfy, entao
+      # aqui a pergunta e so "a verificacao aconteceu?".
+      - name: Ping do watchdog
+        if: always()
+        env:
+          HC_URL: ${{ secrets.HEALTHCHECK_URL }}
+        run: |
+          if [ -z "$HC_URL" ]; then
+            echo "HEALTHCHECK_URL nao configurado; pulando"; exit 0
+          fi
+          curl -fsS --retry 3 --max-time 10 "$HC_URL" >/dev/null && echo "watchdog pingado"

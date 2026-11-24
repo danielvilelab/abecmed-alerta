@@ -1,0 +1,13 @@
+# Copie para config.ini e preencha, ou rode ./configurar.sh (configurar.bat no Windows).
+
+[abecmed]
+cpf = 00000000000
+topico = abecmed-troque-isto
+
+# Intervalo entre verificacoes no modo --loop, em minutos.
+# O programa sorteia um valor aleatorio entre os dois a cada ciclo.
+intervalo_min = 5
+intervalo_max = 7
+
+# Alerta quando a flor custar MENOS que isso por grama.
+preco_max_flor = 50

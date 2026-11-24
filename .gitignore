@@ -1,0 +1,7 @@
+# Contem seu CPF — nunca versionar.
+config.ini
+
+__pycache__/
+*.pyc
+.env
+.DS_Store

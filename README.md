@@ -1,0 +1,87 @@
+# abecmed-alerta
+
+Toca **alto no celular, mesmo no silencioso**, só em dois casos:
+
+- 🌸 **flor abaixo de R$ 50/grama** no bot da ABECMED
+- 🧪 **qualquer concentrado disponível**
+
+Fora isso, fica quieto. Um item só gera aviso de novo se esgotar e voltar.
+
+Baseado em [guimarques1/abecmed-watch](https://github.com/guimarques1/abecmed-watch) (MIT),
+com a autodetecção da versão do bot de [guipolonca-git/abec-notificacoes](https://github.com/guipolonca-git/abec-notificacoes).
+
+## Intervalo
+
+A cada **5 minutos**. É o mínimo do GitHub Actions e um ritmo prudente com o
+site da associação: cada verificação abre ~4 conversas com o bot, perto do que
+um paciente faz navegando. Não reduza para menos de 3 min.
+
+## Passo a passo (GitHub Actions)
+
+### 1. App no celular
+Instale o **ntfy** (Play Store / App Store, grátis). Toque em **+** e assine um
+nome de tópico difícil de adivinhar, ex.: `abecmed-` + 8 letras/números
+aleatórios. Tópicos do ntfy são públicos: quem souber o nome vê seus avisos.
+
+No Android: em **Configurações do app ntfy → Notificações**, permita que
+prioridade máxima ignore o "Não perturbe".
+
+### 2. Repositório
+Crie um repositório **novo, público** na sua conta (não use fork: o GitHub não
+roda agendamento em fork; e repositório público tem Actions ilimitado — em
+privado, verificar a cada 5 min estoura a cota grátis). Envie estes arquivos
+para ele. O `config.ini` (com seu CPF) **nunca** vai junto; já está no `.gitignore`.
+
+### 3. Secrets
+**Settings → Secrets and variables → Actions → New repository secret**:
+
+| Nome | Valor |
+|---|---|
+| `ABECMED_CPF` | seu CPF, só números |
+| `NTFY_TOPIC` | o tópico do passo 1 |
+| `HEALTHCHECK_URL` | opcional, passo 6 |
+
+Opcional, em **Variables**: `PRECO_MAX_FLOR` para mudar o limite (padrão 50).
+
+### 4. Permissão
+**Settings → Actions → General → Workflow permissions → Read and write**.
+
+### 5. Relógio (cron-job.org)
+O agendador do próprio GitHub atrasa ou pula execuções. O relógio confiável é
+o **cron-job.org** (grátis) chamando o GitHub a cada 5 min:
+
+1. Crie um token em **GitHub → Settings → Developer settings → Fine-grained
+   tokens**, com acesso **só a este repositório** e permissão
+   **Contents: Read and write**. Anote a validade.
+2. No cron-job.org: **Create cronjob → Import from cURL**, cole e ajuste:
+
+```bash
+curl -X POST https://api.github.com/repos/SEU_USUARIO/SEU_REPO/dispatches -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" -H "Authorization: Bearer SEU_TOKEN" -d '{"event_type":"check"}'
+```
+
+3. Agendamento: **a cada 5 minutos**. **Test run** respondendo `204` = ok.
+
+### 6. Vigia (opcional, recomendado)
+No **healthchecks.io**: novo check, período 5 min, tolerância 15 min,
+integração **ntfy** no mesmo tópico. Cole a Ping URL no secret
+`HEALTHCHECK_URL`. Se o monitor parar (token vencido, GitHub fora), você fica sabendo.
+
+### 7. Primeiro teste
+Aba **Actions → check → Run workflow**. Chega no celular
+**"abecmed-alerta ativo"** com a situação atual. Depois disso, só os alertas.
+
+## Rodando no computador (para testar)
+
+```bash
+./configurar.sh                  # pede CPF e tópico, grava config.ini local
+python3 bot.py --teste-push      # celular deve tocar alto
+python3 bot.py --dry-run         # mostra o catálogo e marca o que daria alerta
+```
+
+## Quando quebrar
+
+Se a ABECMED mudar o fluxo, chega **"abecmed-alerta quebrou"** com as opções que
+o script viu (uma vez só, não a cada 5 min). Os ajustes ficam no topo do `bot.py`:
+`NAV_RX` (botões de navegação), `SEM_ESTOQUE_RX` e `PRECO_RX`.
+
+MIT. Sem vínculo com a ABECMED.
