@@ -80,7 +80,7 @@ intervalo_min = 5
 intervalo_max = 7
 
 # Alerta quando a flor custar MENOS que isso por grama.
-preco_max_flor = 50
+preco_max_flor = 60
 EOF
 
 chmod 600 "$CONFIG" 2>/dev/null

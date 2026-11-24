@@ -58,7 +58,7 @@ rem --- grava o arquivo
     echo intervalo_max = 7
     echo.
     echo # Alerta quando a flor custar MENOS que isso por grama.
-    echo preco_max_flor = 50
+    echo preco_max_flor = 60
 ) > config.ini
 
 echo.

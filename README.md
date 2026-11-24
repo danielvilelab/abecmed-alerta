@@ -1,11 +1,18 @@
 # abecmed-alerta
 
-Toca **alto no celular, mesmo no silencioso**, só em dois casos:
+A cada 5 minutos chega um push com a **tabela da ABECMED** (flores, da mais
+barata para a mais cara, e concentrados), destacando com ✅ o que está nas condições:
 
-- 🌸 **flor abaixo de R$ 50/grama** no bot da ABECMED
+- 🌸 **flor abaixo de R$ 60/grama**
 - 🧪 **qualquer concentrado disponível**
 
-Fora isso, fica quieto. Um item só gera aviso de novo se esgotar e voltar.
+O volume do push depende do que tem:
+
+| Situação | Título | Som |
+|---|---|---|
+| item **novo** nas condições | 🚨 CORRE: … | **alto** (prioridade 5) |
+| itens nas condições, já avisados | ABEC 18:10 · ✅ 2 nas condições | normal |
+| nada nas condições | ABEC 18:10 · nada nas condições | calado |
 
 Baseado em [guimarques1/abecmed-watch](https://github.com/guimarques1/abecmed-watch) (MIT),
 com a autodetecção da versão do bot de [guipolonca-git/abec-notificacoes](https://github.com/guipolonca-git/abec-notificacoes).
@@ -41,7 +48,7 @@ para ele. O `config.ini` (com seu CPF) **nunca** vai junto; já está no `.gitig
 | `NTFY_TOPIC` | o tópico do passo 1 |
 | `HEALTHCHECK_URL` | opcional, passo 6 |
 
-Opcional, em **Variables**: `PRECO_MAX_FLOR` para mudar o limite (padrão 50).
+Opcional, em **Variables**: `PRECO_MAX_FLOR` para mudar o limite (padrão 60).
 
 ### 4. Permissão
 **Settings → Actions → General → Workflow permissions → Read and write**.

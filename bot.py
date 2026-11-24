@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-abecmed-alerta — push no celular SO quando aparece:
+abecmed-alerta — push no celular a CADA verificacao com a tabela da ABECMED,
+destacando o que esta nas condicoes:
 
-  1. flor abaixo de R$ 50/grama  (PRECO_MAX_FLOR)
+  1. flor abaixo de R$ 60/grama  (PRECO_MAX_FLOR)
   2. qualquer concentrado disponivel
+
+Item novo nas condicoes toca alto; o resto chega com som normal ou calado.
 
 Baseado em github.com/guimarques1/abecmed-watch (MIT) e na autodeteccao de
 versao do bot de github.com/guipolonca-git/abec-notificacoes.
@@ -13,7 +16,6 @@ navegador: paciente -> CPF -> menu -> flores (cada tipo: THC, CBD...) e
 concentrados. Le os botoes de produto, que vem no formato
 "[R$ 95] — La Fanta #2", e aplica as duas regras.
 
-So avisa de novo um item se ele sumir e voltar. Nada de spam a cada rodada.
 
 Configuracao (ambiente ganha do arquivo):
     ABECMED_CPF, NTFY_TOPIC, PRECO_MAX_FLOR   ou   config.ini
@@ -36,6 +38,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -43,7 +46,8 @@ BASE = "https://bot.abecmed.com.br"
 FALLBACK_TYPEBOT = "bot-abecmed-2-2"
 NTFY_BASE = "https://ntfy.sh"
 
-PRECO_MAX_FLOR = 50.0  # alerta quando o preco/grama for MENOR que isso
+PRECO_MAX_FLOR = 60.0  # destaca quando o preco/grama for MENOR que isso
+BRT = timezone(timedelta(hours=-3))  # horario de Brasilia (sem horario de verao)
 
 BROWSER_HEADERS = {
     "User-Agent": (
@@ -390,7 +394,6 @@ def ciclo(cpf, topic, state_path, limite):
     """Uma verificacao. Devolve True se o fluxo quebrou."""
     state = load_state(state_path)
     ja_avisou_quebra = bool(state.get("quebrado"))
-    primeira = "alertados" not in state
     antes = set(state.get("alertados", []))
 
     try:
@@ -411,23 +414,34 @@ def ciclo(cpf, topic, state_path, limite):
     agora = alvos(cat, limite)
     novos = [agora[k] for k in sorted(agora) if k not in antes]
     disponivel = catalogo_texto(cat, limite)
+    hora = datetime.now(BRT).strftime("%H:%M")
+    condicoes = "flor < R$ %g/g ou concentrado" % limite
 
-    if primeira:
-        resumo = "\n".join(agora.values()) or "Nada abaixo de R$ %g/g nem concentrado agora." % limite
-        notify(topic, "abecmed-alerta ativo",
-               "Monitorando. Alertas agora:\n%s\n\n%s" % (resumo, disponivel),
-               ["rotating_light"] if agora else ["seedling"], 5 if agora else 3)
-    elif novos:
+    # Push em TODA verificacao, com a tabela. O volume depende do que tem:
+    #   item novo nas condicoes -> 5 (toca alto)
+    #   itens nas condicoes, ja avisados -> 3 (som normal)
+    #   nada nas condicoes -> 2 (chega calado, sem som)
+    if novos:
         tem_flor = any(n.startswith("🌸") for n in novos)
         tem_conc = any(n.startswith("🧪") for n in novos)
         partes = (["FLOR < R$ %g" % limite] if tem_flor else []) + (["CONCENTRADO"] if tem_conc else [])
-        notify(topic, "CORRE: " + " + ".join(partes) + " na ABECMED",
-               "NOVO:\n" + "\n".join(novos) + "\n\n" + disponivel,
-               ["rotating_light"], 5)
-        print("%s  ALERTA enviado: %d item(ns)" % (time.strftime("%H:%M"), len(novos)))
+        titulo = "🚨 CORRE: " + " + ".join(partes) + " (%s)" % hora
+        topo = "⭐ NOVO NAS CONDICOES:\n" + "\n".join(novos)
+        outros = [v for k, v in sorted(agora.items()) if v not in novos]
+        if outros:
+            topo += "\n\nTambem nas condicoes:\n" + "\n".join(outros)
+        tags, prioridade = ["rotating_light"], 5
+    elif agora:
+        titulo = "ABEC %s · ✅ %d nas condicoes" % (hora, len(agora))
+        topo = "NAS CONDICOES (%s):\n%s" % (condicoes, "\n".join(agora[k] for k in sorted(agora)))
+        tags, prioridade = ["white_check_mark"], 3
     else:
-        print("%s  nada novo (%d flores, %d concentrados, %d alvo(s) ja avisados)" % (
-            time.strftime("%H:%M"), len(cat["flores"]), len(cat["concentrados"]), len(agora)))
+        titulo = "ABEC %s · nada nas condicoes" % hora
+        topo = "Nada nas condicoes (%s)." % condicoes
+        tags, prioridade = ["seedling"], 2
+
+    notify(topic, titulo, topo + "\n\n" + disponivel, tags, prioridade)
+    print("%s  push enviado (prioridade %d): %s" % (hora, prioridade, titulo))
 
     # So guarda os alvos ATUAIS: item que esgota e volta gera alerta de novo.
     save_state(state_path, {"alertados": sorted(agora), "quebrado": False, "slug": cat["slug"]})
