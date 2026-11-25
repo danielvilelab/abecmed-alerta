@@ -1,18 +1,20 @@
 # abecmed-alerta
 
-A cada 10 minutos, das 8h às 22h, o script verifica a ABECMED. **Só chega push quando algo está nas condições**, com a **tabela da ABECMED** (flores, da mais
+A cada 10 minutos, das 8h às 22h, o script verifica a ABECMED. **Só chega push quando entra item novo nas condições**, com a **tabela da ABECMED** (flores, da mais
 barata para a mais cara, e concentrados), destacando com ✅ o que está nas condições:
 
 - 🌸 **flor abaixo de R$ 60/grama**
 - 🧪 **qualquer concentrado disponível**
 
-O volume do push depende do que tem:
+Quando o push sai:
 
 | Situação | Título | Som |
 |---|---|---|
 | item **novo** nas condições | 🚨 CORRE: … | **alto** (prioridade 5) |
-| itens nas condições, já avisados | ABEC 18:10 · ✅ 2 nas condições | normal |
+| itens nas condições, já avisados | — | **sem push** |
 | nada nas condições | — | **sem push** |
+
+Se um item esgota e volta, conta como novo e avisa de novo.
 
 Baseado em [guimarques1/abecmed-watch](https://github.com/guimarques1/abecmed-watch) (MIT),
 com a autodetecção da versão do bot de [guipolonca-git/abec-notificacoes](https://github.com/guipolonca-git/abec-notificacoes).
