@@ -1,20 +1,26 @@
 name: check
 
 on:
-  # Gatilho principal: um servico de cron externo (cron-job.org) chama a API do
-  # GitHub a cada 10 min, das 8h as 22h (Brasilia). O agendador do Actions e best-effort e descarta
-  # execucao sob carga — para uma flor que esgota em horas, isso nao serve.
+  # Gatilho principal: o cron-job.org chama a API do GitHub a cada 15 min, das
+  # 8h as 22h (Brasilia), com origem=cron. O token dele so tem permissao de
+  # Actions (disparar este workflow), nao de mexer no codigo. O agendador do
+  # proprio Actions e best-effort e descarta execucao sob carga.
+  # Rodando a mao (Run workflow), origem fica "manual" e ignora a janela.
+  workflow_dispatch:
+    inputs:
+      origem:
+        description: "manual ou cron"
+        default: "manual"
+
+  # Gatilho antigo (token com permissao de codigo). Mantido so para a transicao.
   repository_dispatch:
     types: [check]
 
-  # Rede de seguranca, nao o relogio principal: a cada 30 min, 8h-22h Brasilia
-  # (11h-00h UTC). O bot.py pula se a ultima verificacao foi ha menos de 8 min,
-  # entao com o cron externo em dia isso nao gera consulta extra. Deslocado dos
-  # minutos redondos, que sao os mais disputados no agendador.
+  # Rede de seguranca, nao o relogio principal: a cada 2 h, 8h-22h Brasilia.
+  # O repositorio e privado e cada execucao conta minutos da cota gratis;
+  # o bot.py pula se a ultima verificacao foi ha menos de 12 min.
   schedule:
-    - cron: "17,47 11-23,0 * * *"
-
-  workflow_dispatch:
+    - cron: "37 11,13,15,17,19,21,23 * * *"
 
 concurrency:
   group: abecmed-alerta
@@ -33,17 +39,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      # So faz sentido no gatilho agendado, que chega em horario redondo junto
-      # com o resto do mundo. O cron externo ja marca a hora que a gente pediu.
-      - name: Jitter
-        if: github.event_name == 'schedule'
-        run: sleep $((RANDOM % 60))
-
       - name: Rodar
         env:
           ABECMED_CPF: ${{ secrets.ABECMED_CPF }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           PRECO_MAX_FLOR: ${{ vars.PRECO_MAX_FLOR }}
+          ORIGEM: ${{ inputs.origem }}
         run: python3 bot.py
 
       # always(): quando o fluxo quebra o passo acima sai com 1, mas o estado

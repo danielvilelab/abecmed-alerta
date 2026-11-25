@@ -67,8 +67,8 @@ BROWSER_HEADERS = {
 
 TIMEOUT = 30
 RETRIES = 3
-INTERVALO_MIN = 10
-INTERVALO_MAX = 12
+INTERVALO_MIN = 15
+INTERVALO_MAX = 17
 # Janela de verificacao (horario de Brasilia): das 8h ate antes das 22h.
 # Fora dela nao consulta o bot - de madrugada ninguem repoe estoque, e cada
 # verificacao abre conversas no Typebot da associacao.
@@ -76,7 +76,7 @@ HORA_INICIO = 8
 HORA_FIM = 22
 # O agendador de reserva do GitHub nao roda se a ultima verificacao foi ha
 # menos disso: evita verificacao dobrada quando o cron-job.org esta em dia.
-MIN_ENTRE_VERIFICACOES = 8
+MIN_ENTRE_VERIFICACOES = 12
 BLOCK_TYPES = {"p", "ul", "ol", "li", "h1", "h2", "h3", "blockquote"}
 MAX_MSG = 3500
 
@@ -516,7 +516,8 @@ def main():
     if not args.loop:
         # Rodada manual (Run workflow) ignora as travas, para poder testar.
         evento = os.environ.get("GITHUB_EVENT_NAME", "")
-        if evento != "workflow_dispatch":
+        manual = evento == "workflow_dispatch" and os.environ.get("ORIGEM", "manual") != "cron"
+        if not manual:
             if not dentro_do_horario():
                 print("fora da janela %dh-%dh (Brasilia); sem consulta" % (HORA_INICIO, HORA_FIM))
                 return
