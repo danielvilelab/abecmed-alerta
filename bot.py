@@ -67,8 +67,16 @@ BROWSER_HEADERS = {
 
 TIMEOUT = 30
 RETRIES = 3
-INTERVALO_MIN = 5
-INTERVALO_MAX = 7
+INTERVALO_MIN = 10
+INTERVALO_MAX = 12
+# Janela de verificacao (horario de Brasilia): das 8h ate antes das 22h.
+# Fora dela nao consulta o bot - de madrugada ninguem repoe estoque, e cada
+# verificacao abre conversas no Typebot da associacao.
+HORA_INICIO = 8
+HORA_FIM = 22
+# O agendador de reserva do GitHub nao roda se a ultima verificacao foi ha
+# menos disso: evita verificacao dobrada quando o cron-job.org esta em dia.
+MIN_ENTRE_VERIFICACOES = 8
 BLOCK_TYPES = {"p", "ul", "ol", "li", "h1", "h2", "h3", "blockquote"}
 MAX_MSG = 3500
 
@@ -367,6 +375,18 @@ def load_state(path):
         return {}
 
 
+def dentro_do_horario():
+    return HORA_INICIO <= datetime.now(BRT).hour < HORA_FIM
+
+
+def minutos_desde_ultima(state_path):
+    try:
+        ultima = datetime.strptime(load_state(state_path)["updated_at"], "%Y-%m-%dT%H:%M:%S%z")
+    except (KeyError, ValueError, TypeError):
+        return None
+    return (datetime.now(timezone.utc) - ultima).total_seconds() / 60
+
+
 def save_state(path, state):
     state["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     with open(path, "w", encoding="utf-8") as fh:
@@ -499,12 +519,24 @@ def main():
         return
 
     if not args.loop:
+        # Rodada manual (Run workflow) ignora as travas, para poder testar.
+        evento = os.environ.get("GITHUB_EVENT_NAME", "")
+        if evento != "workflow_dispatch":
+            if not dentro_do_horario():
+                print("fora da janela %dh-%dh (Brasilia); sem consulta" % (HORA_INICIO, HORA_FIM))
+                return
+            desde = minutos_desde_ultima(args.state)
+            if evento == "schedule" and desde is not None and desde < MIN_ENTRE_VERIFICACOES:
+                print("ultima verificacao ha %.1f min; reserva do GitHub pulando" % desde)
+                return
         sys.exit(1 if ciclo(cpf, topic, args.state, limite) else 0)
 
-    print("Monitorando a cada %d-%d min. Ctrl+C para parar.\n" % (INTERVALO_MIN, INTERVALO_MAX))
+    print("Monitorando a cada %d-%d min, das %dh as %dh. Ctrl+C para parar.\n"
+          % (INTERVALO_MIN, INTERVALO_MAX, HORA_INICIO, HORA_FIM))
     try:
         while True:
-            ciclo(cpf, topic, args.state, limite)
+            if dentro_do_horario():
+                ciclo(cpf, topic, args.state, limite)
             time.sleep(random.uniform(INTERVALO_MIN * 60, INTERVALO_MAX * 60))
     except KeyboardInterrupt:
         print("\nEncerrado.")

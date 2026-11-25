@@ -2,16 +2,17 @@ name: check
 
 on:
   # Gatilho principal: um servico de cron externo (cron-job.org) chama a API do
-  # GitHub a cada 5 min. O agendador do Actions e best-effort e descarta
+  # GitHub a cada 10 min, das 8h as 22h (Brasilia). O agendador do Actions e best-effort e descarta
   # execucao sob carga — para uma flor que esgota em horas, isso nao serve.
   repository_dispatch:
     types: [check]
 
-  # Rede de seguranca, nao o relogio principal. Se o cron externo cair, isso
-  # ainda cobre o buraco de vez em quando. Deslocado dos minutos redondos, que
-  # sao os mais disputados no agendador.
+  # Rede de seguranca, nao o relogio principal: a cada 30 min, 8h-22h Brasilia
+  # (11h-00h UTC). O bot.py pula se a ultima verificacao foi ha menos de 8 min,
+  # entao com o cron externo em dia isso nao gera consulta extra. Deslocado dos
+  # minutos redondos, que sao os mais disputados no agendador.
   schedule:
-    - cron: "1,6,11,16,21,26,31,36,41,46,51,56 * * * *"
+    - cron: "17,47 11-23,0 * * *"
 
   workflow_dispatch:
 

@@ -76,8 +76,8 @@ topico = $topico
 
 # Intervalo entre verificacoes no modo --loop, em minutos.
 # O programa sorteia um valor aleatorio entre os dois a cada ciclo.
-intervalo_min = 5
-intervalo_max = 7
+intervalo_min = 10
+intervalo_max = 12
 
 # Alerta quando a flor custar MENOS que isso por grama.
 preco_max_flor = 60

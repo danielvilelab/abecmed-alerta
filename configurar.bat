@@ -54,8 +54,8 @@ rem --- grava o arquivo
     echo.
     echo # Intervalo entre verificacoes no modo --loop, em minutos.
     echo # O programa sorteia um valor aleatorio entre os dois a cada ciclo.
-    echo intervalo_min = 5
-    echo intervalo_max = 7
+    echo intervalo_min = 10
+    echo intervalo_max = 12
     echo.
     echo # Alerta quando a flor custar MENOS que isso por grama.
     echo preco_max_flor = 60
